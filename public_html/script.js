@@ -134,7 +134,7 @@ function fetchData() {
                 
                 if (ReceiverClock) {
                         var rcv = new Date(now * 1000);
-                        ReceiverClock.render(rcv.getUTCHours(),rcv.getUTCMinutes(),rcv.getUTCSeconds());
+                        ReceiverClock.render(rcv.getHours(),rcv.getMinutes(),rcv.getSeconds());
                 }
 
                 // Check for stale receiver data
