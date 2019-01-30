@@ -209,7 +209,7 @@ var CategoryIcons = {
 
         "A5" : {
                 key : "A5",
-                scale : 0.50,
+                scale : 0.45,
                 size : [64, 64],
                 anchor : [32, 32],
                 path : _generic_plane_svg
