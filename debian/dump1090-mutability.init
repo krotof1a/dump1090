@@ -1,8 +1,8 @@
 #!/bin/sh
 ### BEGIN INIT INFO
 # Provides:          dump1090-mutability
-# Required-Start:    $remote_fs $network
-# Required-Stop:     $remote_fs $network
+# Required-Start:    $remote_fs
+# Required-Stop:     $remote_fs
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: dump1090 daemon (mutability variant)
@@ -16,11 +16,12 @@
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="dump1090-mutability daemon"
-NAME=dump1090-mutability
-DAEMON=/usr/bin/$NAME
-ARGS=""
+NAME=dump1090
+DAEMON=/home/pi/dump1090/$NAME
+ARGS="--html-dir /home/pi/dump1090/public_html"
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
+LOGFILE=/var/log/dump1090
 
 # Exit if the package is not installed
 [ -x "$DAEMON" ] || exit 0
@@ -31,14 +32,16 @@ SCRIPTNAME=/etc/init.d/$NAME
 # work out daemon args
 
 # sanitize missing settings
-[ -z "$START_DUMP1090" ] && START_DUMP1090=no
-[ -z "$DUMP1090_USER" ] && DUMP1090_USER="missing-DUMP1090_USER-setting-in-config"
+[ -z "$START_DUMP1090" ] && START_DUMP1090=yes
+[ -z "$DUMP1090_USER" ] && DUMP1090_USER="pi"
+[ -z "$HTTP_PORT" ] && HTTP_PORT=8080
 [ -z "$RAW_INPUT_PORT" ] && RAW_INPUT_PORT=0
 [ -z "$RAW_OUTPUT_PORT" ] && RAW_OUTPUT_PORT=0
 [ -z "$SBS_OUTPUT_PORT" ] && SBS_OUTPUT_PORT=0
 [ -z "$BEAST_INPUT_PORT" ] && BEAST_INPUT_PORT=0
 [ -z "$BEAST_OUTPUT_PORT" ] && BEAST_OUTPUT_PORT=0
-[ -z "$NET_BUFFER" ] && NET_BUFFER=0
+[ -z "$FATSV_OUTPUT_PORT" ] && FATSV_OUTPUT_PORT=0
+[ -z "$NET_BUFFER" ] && NET_BUFFER=5000
 [ -z "$JSON_INTERVAL" ] && JSON_INTERVAL=0
 [ -z "$MAX_RANGE" ] && MAX_RANGE=300
 
@@ -55,16 +58,19 @@ case "x$GAIN" in
  *) ARGS="$ARGS --gain $GAIN" ;;
 esac
 if [ -n "$PPM" ]; then ARGS="$ARGS --ppm $PPM"; fi
+if [ "x$OVERSAMPLE" = "xyes" ]; then ARGS="$ARGS --oversample"; fi
 
 # decoder:
 if [ "x$FIX_CRC" = "xyes" ]; then ARGS="$ARGS --fix"; fi
+if [ "x$PHASE_ENHANCE" = "xyes" ]; then ARGS="$ARGS --phase-enhance"; fi
+if [ "x$AGGRESSIVE" = "xyes" ]; then ARGS="$ARGS --aggressive"; fi
 if [ -n "$LAT" ]; then ARGS="$ARGS --lat $LAT"; fi
 if [ -n "$LON" ]; then ARGS="$ARGS --lon $LON"; fi
-ARGS="$ARGS --max-range $MAX_RANGE"
+ARGS="$ARGS --max-range $MAX_RANGE"; fi
 
 # net:
 
-ARGS="$ARGS \
+ARGS="$ARGS --net-http-port $HTTP_PORT \
 --net-ri-port $RAW_INPUT_PORT --net-ro-port $RAW_OUTPUT_PORT \
 --net-bi-port $BEAST_INPUT_PORT --net-bo-port $BEAST_OUTPUT_PORT \
 --net-sbs-port $SBS_OUTPUT_PORT"
@@ -114,7 +120,7 @@ do_start()
             return 2
         fi
 
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --user "$DUMP1090_USER" --exec $DAEMON --test > /dev/null \
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --user $DUMP1090_USER --exec $DAEMON --test > /dev/null \
 		|| return 1
 
         # create JSON_DIR with the appropriate permissions
@@ -125,11 +131,7 @@ do_start()
            fi
         fi
 
-        # create logfile with the appropriate permissions if not already there
-        touch $LOGFILE
-        chown "$DUMP1090_USER":root $LOGFILE
-
-	start-stop-daemon --start $NICELEVEL --quiet --pidfile $PIDFILE --user "$DUMP1090_USER" --chuid "$DUMP1090_USER" --make-pidfile --background --no-close --exec $DAEMON -- \
+	start-stop-daemon --start $NICELEVEL --quiet --pidfile $PIDFILE --user $DUMP1090_USER --chuid $DUMP1090_USER --make-pidfile --background --no-close --exec $DAEMON -- \
 		$ARGS >>$LOGFILE 2>&1 \
 		|| return 2
         sleep 1
@@ -145,7 +147,7 @@ do_stop()
 	#   1 if daemon was already stopped
 	#   2 if daemon could not be stopped
 	#   other if a failure occurred
-	start-stop-daemon --stop --retry=TERM/30/KILL/5 --pidfile $PIDFILE --user "$DUMP1090_USER" --exec $DAEMON
+	start-stop-daemon --stop --retry=TERM/30/KILL/5 --pidfile $PIDFILE --user $DUMP1090_USER --exec $DAEMON
 	RETVAL="$?"
 	[ "$RETVAL" = 2 ] && return 2
         sleep 1
